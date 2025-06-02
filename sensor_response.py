@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.13.6"
+__generated_with = "0.13.13"
 app = marimo.App(width="medium")
 
 
@@ -26,6 +26,7 @@ def _():
     from sklearn.neighbors import KNeighborsClassifier
     from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
     from mpl_toolkits.axes_grid1 import make_axes_locatable
+    import matplotlib.gridspec as gridspec
     return (
         ConfusionMatrixDisplay,
         KNeighborsClassifier,
@@ -37,6 +38,7 @@ def _():
         Path,
         PowerTransformer,
         auc,
+        gridspec,
         make_axes_locatable,
         np,
         pd,
@@ -45,15 +47,24 @@ def _():
     )
 
 
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""# Helpers to read in response data""")
+@app.cell
+def _(plt):
+    plt.rcParams.update({"font.size": 18})
     return
 
 
 @app.cell
-def _(plt):
-    plt.rcParams.update({"font.size": 18})
+def _():
+    from aquarel import load_theme
+
+    theme = load_theme("boxy_light")
+    theme.apply()
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""# Helpers to read in response data""")
     return
 
 
@@ -255,14 +266,6 @@ def _(auc, linear_regression, np, plt, read_data):
 
             # get mean over partitions
             means = [np.mean(self.data.iloc[ids_split]['-ΔG/G0']) for ids_split in ids_splits]
-
-            # # adjustment for Cu, NH3, N2_dry, 20ppm reps 0,1
-            # if self.cof == 'Cu-COF-DC-8' and self.gas == 'NH3' and self.carrier_gas == 'N2_dry' and self.ppm == 20 and self.replicate_id in [0,1]:
-            #     id_max_magnitude = np.argmax(means)
-            # # adjustment for Ni, H2S, N2_dry, 10ppm, reps 1,2
-            # elif self.cof == 'Ni-COF-DC-8' and self.gas =='H2S' and self.carrier_gas == 'N2_dry' and self.ppm == 10 and (self.replicate_id==1 or self.replicate_id==2):
-            #     id_max_magnitude = np.argmax(means)
-            # else:
             id_max_magnitude = np.argmax(np.abs(means))
 
             self.saturation = means[id_max_magnitude]
@@ -307,11 +310,7 @@ def _(auc, linear_regression, np, plt, read_data):
 
             all_info = "{}_{}_{}ppm_{}".format(self.MOF, self.gas, self.ppm, self.replicate_id)
             plt.title(all_info)
-            # create inset axes & plot initial slope data on them
-            # ins_ax = fig.add_axes([0.6,0.2,0.3,0.3])
-            # ins_ax.scatter(self.data.loc[initial_slope[3], 's'], self.data.loc[initial_slope[3], 'ΔG/G0'])
-            # ins_ax.plot(self.data.loc[initial_slope[3], 's'], initial_slope[2], color = 'orange')
-
+    
             if save:
                 plt.savefig("responses/featurized_{}.png".format(all_info), format="png")
             plt.show()
@@ -322,7 +321,7 @@ def _(auc, linear_regression, np, plt, read_data):
 @app.cell
 def _(SensorResponse):
     # Test the SensorResponse class initial_slope function
-    _sensor_response = SensorResponse("CuPc-Ni", "NO", 80, 1)
+    _sensor_response = SensorResponse("CuPc-O-Ni", "NO", 80, 1)
     _sensor_response.compute_features(n_partitions_slope=10)
     _sensor_response.viz(save=True)
     return
@@ -331,8 +330,8 @@ def _(SensorResponse):
 @app.cell
 def _():
     gases = ['CO', 'H2S', 'NO']
-    MOFs = ["CuPc-Cu", "CuPc-Ni", "CuPc-Zn", "NiPc-Cu", "NiPc-Ni", "NiPc-Zn", "ZnPc-Cu", "ZnPc-Ni", "ZnPc-Zn"]
-    features = ['auc', 'slope', 'saturation']
+    MOFs = ["ZnPc-O-Zn", "ZnPc-O-Cu", "ZnPc-O-Ni", "CuPc-O-Zn", "CuPc-O-Cu", "CuPc-O-Ni", "NiPc-O-Zn", "NiPc-O-Cu","NiPc-O-Ni"]
+    features = ['AUC', 'slope', 'saturation']
     ppms = [80, 40, 25, 20, 10, 5]
     return MOFs, features, gases, ppms
 
@@ -376,7 +375,7 @@ def _(MOFs, SensorResponse, gases, ppms, read_data_from_file):
 def _(pd, raw_data, read_data_from_file):
     # Put list of data into dataframe
     if not read_data_from_file:
-        prelim_data = pd.DataFrame(raw_data, columns=['MOF', 'gas', 'ppm', 'rep_id', 'slope', 'saturation', 'auc'])
+        prelim_data = pd.DataFrame(raw_data, columns=['MOF', 'gas', 'ppm', 'rep_id', 'slope', 'saturation', 'AUC'])
 
         prelim_data # b/c we'll make adjustements later.
     return (prelim_data,)
@@ -408,7 +407,7 @@ def _(SensorResponse):
                 prelim_data.loc[(prelim_data['MOF']==MOF)
                                     & (prelim_data['ppm']==ppm)
                                     & (prelim_data['gas']==gas)
-                                    & (prelim_data['rep_id']==rep_id), 'auc'] = sensor_response.auc
+                                    & (prelim_data['rep_id']==rep_id), 'AUC'] = sensor_response.auc
                 prelim_data.loc[(prelim_data['MOF']==MOF)
                                     & (prelim_data['gas']==gas)
                                     & (prelim_data['ppm']==ppm)
@@ -424,22 +423,22 @@ def _(make_adjustment, pd, prelim_data, read_data_from_file):
     # do all of these in one cell.
     if not read_data_from_file:
         data = prelim_data.copy()
-        make_adjustment(data, MOF='CuPc-Cu', gas='CO', ppm=20, rep_ids=[0, 1, 3], time_adjust=40)
-        make_adjustment(data, MOF='CuPc-Cu', gas='CO', ppm=40, rep_ids=[0, 1, 2, 3], time_adjust=80)
-        make_adjustment(data, MOF='ZnPc-Ni', gas='H2S', ppm=20, rep_ids=[0, 1, 2, 3], time_adjust=50)
-        make_adjustment(data, MOF='CuPc-Zn', gas='H2S', ppm=10, rep_ids=[0, 1, 2, 3], time_adjust=120)
-        make_adjustment(data, MOF='CuPc-Zn', gas='H2S', ppm=40, rep_ids=[0, 1, 2], time_adjust=40)
-        make_adjustment(data, MOF='NiPc-Cu', gas='CO', ppm=20, rep_ids=[0, 2, 3], time_adjust=80)
-        make_adjustment(data, MOF='NiPc-Cu', gas='CO', ppm=40, rep_ids=[0, 1, 2], time_adjust=50)
-        make_adjustment(data, MOF='NiPc-Cu', gas='CO', ppm=80, rep_ids=[0, 1, 2], time_adjust=50)
-        make_adjustment(data, MOF='NiPc-Zn', gas='CO', ppm=40, rep_ids=[0, 1, 2, 3], time_adjust=300)
-        make_adjustment(data, MOF='NiPc-Zn', gas='H2S', ppm=40, rep_ids=[0, 1, 2, 3], time_adjust=40)
-        make_adjustment(data, MOF='NiPc-Zn', gas='H2S', ppm=80, rep_ids=[0, 1, 2, 3], time_adjust=30)
-        make_adjustment(data, MOF='ZnPc-Cu', gas='CO', ppm=40, rep_ids=[0, 1, 2, 3], time_adjust=80)
-        make_adjustment(data, MOF='ZnPc-Ni', gas='CO', ppm=40, rep_ids=[0, 1, 2, 3], time_adjust=300, n_partitions_slope_adj=5)
-        make_adjustment(data, MOF='ZnPc-Ni', gas='CO', ppm=80, rep_ids=[0, 1, 2, 3],  time_adjust=80)
-        make_adjustment(data, MOF='ZnPc-Zn', gas='H2S', ppm=10, rep_ids=[0, 1, 2, 3], time_adjust=200)
-        make_adjustment(data, MOF='ZnPc-Zn', gas='H2S', ppm=40, rep_ids=[0, 1, 2, 3], time_adjust=50)
+        make_adjustment(data, MOF='CuPc-O-Cu', gas='CO', ppm=20, rep_ids=[0, 1, 3], time_adjust=40)
+        make_adjustment(data, MOF='CuPc-O-Cu', gas='CO', ppm=40, rep_ids=[0, 1, 2, 3], time_adjust=80)
+        make_adjustment(data, MOF='ZnPc-O-Ni', gas='H2S', ppm=20, rep_ids=[0, 1, 2, 3], time_adjust=50)
+        make_adjustment(data, MOF='CuPc-O-Zn', gas='H2S', ppm=10, rep_ids=[0, 1, 2, 3], time_adjust=120)
+        make_adjustment(data, MOF='CuPc-O-Zn', gas='H2S', ppm=40, rep_ids=[0, 1, 2], time_adjust=40)
+        make_adjustment(data, MOF='NiPc-O-Cu', gas='CO', ppm=20, rep_ids=[0, 2, 3], time_adjust=80)
+        make_adjustment(data, MOF='NiPc-O-Cu', gas='CO', ppm=40, rep_ids=[0, 1, 2], time_adjust=50)
+        make_adjustment(data, MOF='NiPc-O-Cu', gas='CO', ppm=80, rep_ids=[0, 1, 2], time_adjust=50)
+        make_adjustment(data, MOF='NiPc-O-Zn', gas='CO', ppm=40, rep_ids=[0, 1, 2, 3], time_adjust=300)
+        make_adjustment(data, MOF='NiPc-O-Zn', gas='H2S', ppm=40, rep_ids=[0, 1, 2, 3], time_adjust=40)
+        make_adjustment(data, MOF='NiPc-O-Zn', gas='H2S', ppm=80, rep_ids=[0, 1, 2, 3], time_adjust=30)
+        make_adjustment(data, MOF='ZnPc-O-Cu', gas='CO', ppm=40, rep_ids=[0, 1, 2, 3], time_adjust=80)
+        make_adjustment(data, MOF='ZnPc-O-Ni', gas='CO', ppm=40, rep_ids=[0, 1, 2, 3], time_adjust=300, n_partitions_slope_adj=5)
+        make_adjustment(data, MOF='ZnPc-O-Ni', gas='CO', ppm=80, rep_ids=[0, 1, 2, 3],  time_adjust=80)
+        make_adjustment(data, MOF='ZnPc-O-Zn', gas='H2S', ppm=10, rep_ids=[0, 1, 2, 3], time_adjust=200)
+        make_adjustment(data, MOF='ZnPc-O-Zn', gas='H2S', ppm=40, rep_ids=[0, 1, 2, 3], time_adjust=50)
         # save
         data.to_csv("responses.csv")
     else:
@@ -528,6 +527,17 @@ def _(mo):
     return
 
 
+@app.function
+def gases_to_pretty_name(gases):
+    sub = {"CO" : "CO", "NO" :"NO", "H2S" : "H$_2$S"}
+    pretty_name = []
+    if isinstance(gases, str):
+        return sub[gases]
+    for gas in gases:
+        pretty_name.append(sub[gas])
+    return pretty_name
+
+
 @app.cell
 def _(
     LinearSegmentedColormap,
@@ -545,23 +555,24 @@ def _(
         fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 12), gridspec_kw={'height_ratios':[4, 1]})
 
         # font size
-        fs = 20
+        fs = 25
         yticklabels = features * 9
 
         # create heatmap
         heat_matrix_plot = transformed_combo_df[feature_col_names].T
-        heat = sns.heatmap(heat_matrix_plot, cmap=RdGn, center=0, yticklabels=yticklabels, 
+        heat = sns.heatmap(heat_matrix_plot, cmap="coolwarm", center=0, yticklabels=yticklabels, 
                            vmin=-2, vmax=2, square=True, ax=ax1, cbar=False)
-
+        ax1.grid(False)
         # create a new axes for the colorbar
         divider = make_axes_locatable(ax1)
-        cax = divider.append_axes("right", size="2%", pad=1.5)  # increase pad to move colorbar further right
+        cax = divider.append_axes("right", size="2%", pad=1.9)  # increase pad to move colorbar further right
 
         # add colorbar to the new axes
         cbar = fig.colorbar(heat.collections[0], cax=cax)
 
         # adjust colorbar ticks
         cbar.ax.tick_params(labelsize=fs)
+        cbar.ax.minorticks_off()
         cbar.set_ticks([-2, -1, 0, 1, 2])
 
         # add colorbar label
@@ -578,17 +589,17 @@ def _(
         ax1.annotate("CO", color=colordict["CO"], xy=((gas_counts['CO']/2 ) / n_exp, 1.04), xycoords='axes fraction',
                         fontsize=fs, ha='center', va='bottom',
                         bbox=dict(boxstyle='square', ec='white', fc='white', color='k'),
-                        arrowprops=dict(arrowstyle='-[, widthB=3.7, lengthB=1.', lw=2, color='k'))
+                        arrowprops=dict(arrowstyle='-[, widthB=2.9, lengthB=.8', lw=2, color='k'))
 
         ax1.annotate("H$_2$S", color=colordict["H2S"], xy=((gas_counts['CO'] + gas_counts['H2S'] / 2 ) / n_exp, 1.04), 
                      xycoords='axes fraction', fontsize=fs, ha='center', va='bottom',
                      bbox=dict(boxstyle='square', ec='white', fc='white', color='k'),
-                     arrowprops=dict(arrowstyle='-[, widthB=5.7, lengthB=1.', lw=2, color='k'))
+                     arrowprops=dict(arrowstyle='-[, widthB=4.3, lengthB=.8', lw=2, color='k'))
 
         ax1.annotate("NO", color=colordict["NO"], xy=((gas_counts['CO'] + gas_counts['H2S'] + gas_counts['NO'] / 2) / n_exp, 1.04), 
                      xycoords='axes fraction', fontsize=fs, ha='center', va='bottom',
                      bbox=dict(boxstyle='square', ec='white', fc='white', color='k'),
-                     arrowprops=dict(arrowstyle='-[, widthB=4.3, lengthB=1.', lw=2, color='k'))
+                     arrowprops=dict(arrowstyle='-[, widthB=3.25, lengthB=.8', lw=2, color='k'))
 
         # label the MOFs:
         for (i, MOF) in enumerate(MOFs):
@@ -596,18 +607,19 @@ def _(
             ax1.annotate(MOF, xy=(1.01, point / (3 * len(MOFs))), xycoords='axes fraction',
                         fontsize=fs, ha='left', va='center',
                         bbox=dict(boxstyle='square', ec='white', fc='white', color='k'),
-                        arrowprops=dict(arrowstyle=']- ,widthA=1.4, lengthA=1, angleA=180', lw=2, color='k'))
+                        arrowprops=dict(arrowstyle=']- ,widthA=1.08, lengthA=1, angleA=180', lw=2, color='k'))
 
         ax1.set_xticks([])
+        ax1.minorticks_off()
         ax1.set_yticks(ax1.get_yticks())
         ax1.set_yticklabels(ax1.get_yticklabels(), rotation=0, fontsize=fs)
 
         # create scatter ppm plot
         colorlist = [colordict[gas] for gas in transformed_combo_df.gas] # create list to assign color to each ppm data point
 
-        ax2.scatter(x=np.arange(0, n_exp, 1), y=transformed_combo_df['ppm'], s=180, c=colorlist, clip_on=False)
+        ax2.bar(x=np.arange(0, n_exp, 1), height=transformed_combo_df['ppm'], color=colorlist)
         ax2.set_xlim(ax1.get_xlim())
-        ax2.set_ylabel("Concentration\n[ppm]\nin dry N$_2$", fontsize=fs)
+        ax2.set_ylabel("concentration\n[ppm]\nin dry N$_2$", fontsize=fs)
         ax2.tick_params(axis='both', which='both', labelsize=fs)
         ax2.set_xticks(ticks=np.arange(0, n_exp, 1), labels=[])
 
@@ -627,7 +639,8 @@ def _(
 
         ax2.grid(axis='x', color='grey')
         ax2.set_yticks(ticks=[80,40,0])
-        plt.savefig("heatmap.pdf", bbox_inches='tight', pad_inches=0.5)
+        ax2.minorticks_off()
+        plt.savefig("heatmap.png", bbox_inches='tight', pad_inches=0.5)
         return plt.show()
     return (plot_heatmap,)
 
@@ -635,6 +648,93 @@ def _(
 @app.cell
 def _(plot_heatmap, transformed_combo_df):
     plot_heatmap(transformed_combo_df)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""# 3 x 3 plots""")
+    return
+
+
+@app.cell
+def _(data):
+    data["M1"] = data.MOF.apply(lambda x : x[:2]).copy()
+    data["M2"] = data.MOF.apply(lambda x : x.split("-")[-1]).copy()
+    return
+
+
+@app.cell
+def _(PowerTransformer, cmap, data, gases, gridspec, np, pd, plt, sns):
+    def draw_3x3_response(ppm, feature, data=data, gases=gases):
+        feature_to_expressive_name = {"AUC" : "area under the curve\n(AUC)",
+                                      "slope" : "initial rate of response\n(slope)",
+                                      "saturation" : "maximum response\n(saturation)"}
+
+        fig = plt.figure(figsize=(8, 8))
+        gs = gridspec.GridSpec(3, 1, hspace=0.1)
+        sub_data = data[(data["ppm"] == ppm)]
+        # data to help scale vizualization
+        transformed_feature = np.hstack(PowerTransformer().fit_transform(pd.DataFrame(sub_data[feature])))
+        sub_data.loc[sub_data.index, feature] = transformed_feature
+
+        clip = np.max(np.abs(sub_data[feature]))
+        for i, gas in enumerate(["H2S", "NO", "CO"]):
+            subset_data = sub_data[(sub_data["gas"] == gas)]
+            subset_data = subset_data.groupby(["M1", "M2"]).mean(feature)
+            subset_data = subset_data.pivot_table(index="M1", columns="M2")
+            subset_data = subset_data.loc[["Ni", "Cu", "Zn"]]
+
+            related_cols = [col for col in subset_data.columns if feature in col]
+            subset_data = subset_data[related_cols]
+
+            ax = fig.add_subplot(gs[i, 0])
+            heat = sns.heatmap(
+                subset_data,
+                xticklabels=[],
+                yticklabels="",
+                ax=ax,
+                center=0,
+                vmin=-clip,
+                vmax=clip,
+                cmap="coolwarm",
+                cbar=False,
+                square=True,
+            )
+            # if i == 0:
+            #     ax.set_title(feature_to_expressive_name[feature])
+
+            ax.grid(False)
+            ax.minorticks_off()
+            ax.set_xlabel("")
+            ax.set_ylabel("")
+    
+        ax.set_xticks([0.5, 1.5, 2.5])
+        ax.set_xticklabels(subset_data.index)
+        plt.savefig(f"{feature}_heatmap.pdf", bbox_inches='tight', facecolor='white', pad_inches=0.5)
+
+        def plot_colorbar(clip=clip, cmap=cmap):
+            fig = plt.figure(figsize=(10, 0.1))
+            gs = gridspec.GridSpec(1, 3) 
+
+            # Add colorbars
+            ax_c = fig.add_subplot(gs[0, :3])
+            norm_ads = plt.Normalize(vmin=-clip, vmax=clip)
+            cb1 = fig.colorbar(plt.cm.ScalarMappable(norm=norm_ads, cmap="coolwarm"), cax=ax_c, orientation='horizontal')
+            cb1.set_label(f"transformed feature")
+            ax_c.minorticks_off()
+            plt.savefig(f"{feature}_heatmap_cb.pdf", bbox_inches='tight', facecolor='white', pad_inches=0.5)
+            return
+        plot_colorbar()
+
+        return plt.show()
+    return (draw_3x3_response,)
+
+
+@app.cell
+def _(draw_3x3_response):
+    # with plt.rc_context({'font.size': 25}):
+    draw_3x3_response(80, "saturation")
     return
 
 
@@ -686,7 +786,7 @@ def _(Line2D, np, plt):
             scatter = ax.scatter(pc1[gas_mask], pc2[gas_mask], s=(3 * ppm[gas_mask]),
                                 edgecolors=colordict[gas_type], linewidths=1.5, facecolors='none', clip_on=False)
             gas_legend_elements.append(Line2D([0], [0], marker='o', color='w', label=gas_label,
-                                            markeredgecolor=colordict[gas_type], markerfacecolor='none', markersize=20))
+                                            markeredgecolor=colordict[gas_type], markerfacecolor='none', markersize=15))
 
         ppm_legend_elements = [Line2D([0], [0], marker='o', color='w', label=str(ppm_value)+" ppm",
                                 markerfacecolor='w', markeredgecolor='black', ms=2 * np.sqrt(ppm_value)) for ppm_value in ppm_values]
@@ -697,28 +797,30 @@ def _(Line2D, np, plt):
         ax.grid(False)
 
         # create the legends
-        gas_legend = ax.legend(handles=gas_legend_elements, title=None, loc=(1.0, .0), frameon=False)
-        ppm_legend = ax.legend(handles=ppm_legend_elements, title=None, loc=(-0.02, -0.75),
+        gas_legend = ax.legend(handles=gas_legend_elements, title=None, loc=(1, -.1), frameon=False)
+        ppm_legend = ax.legend(handles=ppm_legend_elements, title=None, loc=(-0.16, -1.1),
                             ncol=len(ppm_values), frameon=False)
 
         ax.add_artist(gas_legend)
         #ax.add_artist(ppm_legend)
 
         ax.set_aspect('equal')
+        ax.minorticks_off()
         plt.axhline(y=0, color='grey')
         plt.axvline(x=0, color='grey')
         plt.tight_layout()
 
         # Adjust the layout
-        plt.savefig("PCA.pdf", bbox_extra_artists=(gas_legend, ppm_legend), bbox_inches='tight')
+        plt.savefig("PCA.png", bbox_extra_artists=(gas_legend, ppm_legend), bbox_inches='tight')
         return plt.show()
 
     return (plot_PCA,)
 
 
 @app.cell
-def _(pcs_and_exps, plot_PCA, z1, z2):
-    plot_PCA(pcs_and_exps, z1, z2)
+def _(pcs_and_exps, plot_PCA, plt, z1, z2):
+    with plt.rc_context({'font.size': 22}):
+        plot_PCA(pcs_and_exps, z1, z2)
     return
 
 
@@ -760,15 +862,6 @@ def _(KNeighborsClassifier, X_train, np, train_combo):
     return (knn,)
 
 
-@app.function
-def gases_to_pretty_name(gases):
-    pretty_name = []
-    for gas in gases:
-        sub = str.maketrans("0123456789", "₀₁₂₃₄₅₆₇₈₉")
-        pretty_name.append(gas.translate(sub))
-    return pretty_name
-
-
 @app.cell
 def _(
     ConfusionMatrixDisplay,
@@ -779,15 +872,21 @@ def _(
     plt,
     test_combo,
 ):
-    disp = ConfusionMatrixDisplay.from_estimator(knn,
-                                                 X_test,
-                                                 test_combo.gas,
-                                                 display_labels=gases_to_pretty_name(knn.classes_),
-                                                 cmap=ListedColormap(["white", *plt.cm.Greens(np.linspace(0.1, 1))]))
-    plt.tight_layout()
-    plt.savefig("confusionmatrix.pdf")
-    plt.show()
-    return
+    with plt.rc_context({'font.size': 25}):
+        cmap = ListedColormap(["white", *plt.cm.Greens(np.linspace(0.1, 1))])
+        disp = ConfusionMatrixDisplay.from_estimator(knn,
+                                                     X_test,
+                                                     test_combo.gas,
+                                                     display_labels=gases_to_pretty_name(knn.classes_),
+                                                     cmap=cmap)
+        colorbar = disp.figure_.axes[-1] 
+        colorbar.minorticks_off()  
+        plt.minorticks_off()
+        plt.tight_layout()
+        plt.grid(False)
+        plt.savefig("confusionmatrix.png")
+        plt.show()
+    return (cmap,)
 
 
 @app.cell
