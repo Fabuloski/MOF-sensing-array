@@ -310,7 +310,7 @@ def _(auc, linear_regression, np, plt, read_data):
 
             all_info = "{}_{}_{}ppm_{}".format(self.MOF, self.gas, self.ppm, self.replicate_id)
             plt.title(all_info)
-    
+
             if save:
                 plt.savefig("responses/featurized_{}.png".format(all_info), format="png")
             plt.show()
@@ -439,6 +439,28 @@ def _(make_adjustment, pd, prelim_data, read_data_from_file):
         make_adjustment(data, MOF='ZnPc-O-Ni', gas='CO', ppm=80, rep_ids=[0, 1, 2, 3],  time_adjust=80)
         make_adjustment(data, MOF='ZnPc-O-Zn', gas='H2S', ppm=10, rep_ids=[0, 1, 2, 3], time_adjust=200)
         make_adjustment(data, MOF='ZnPc-O-Zn', gas='H2S', ppm=40, rep_ids=[0, 1, 2, 3], time_adjust=50)
+        make_adjustment(data, MOF='NiPc-O-Cu', gas='CO', ppm=20, rep_ids=[0, 2], time_adjust=80)
+        make_adjustment(data, MOF='NiPc-O-Cu', gas='CO', ppm=20, rep_ids=[3], time_adjust=180)
+        make_adjustment(data, MOF='NiPc-O-Cu', gas='CO', ppm=20, rep_ids=[1], n_partitions_slope_adj=2, time_adjust=50)
+        make_adjustment(data, MOF='NiPc-O-Cu', gas='CO', ppm=40, rep_ids=[0, 1, 2], time_adjust=70)
+        make_adjustment(data, MOF='NiPc-O-Cu', gas='CO', ppm=80, rep_ids=[0, 1, 2], time_adjust=50)
+        make_adjustment(data, MOF='NiPc-O-Zn', gas='CO', ppm=40, rep_ids=[0, 1, 2, 3], time_adjust=400, n_partitions_slope_adj=3)
+        make_adjustment(data, MOF='NiPc-O-Zn', gas='CO', ppm=20, rep_ids=[0, 1, 2, 3], n_partitions_slope_adj=3)
+        make_adjustment(data, MOF='NiPc-O-Zn', gas='CO', ppm=80, rep_ids=[0, 1, 2, 3], n_partitions_slope_adj=3)
+        make_adjustment(data, MOF='NiPc-O-Ni', gas='CO', ppm=80, rep_ids=[0, 1, 2, 3], n_partitions_slope_adj=3, time_adjust=50)
+        make_adjustment(data, MOF='NiPc-O-Ni', gas='CO', ppm=40, rep_ids=[0, 1, 2, 3], n_partitions_slope_adj=3)
+        make_adjustment(data, MOF='NiPc-O-Ni', gas='CO', ppm=20, rep_ids=[0, 1, 2, 3], time_adjust=600, n_partitions_slope_adj=2)
+        make_adjustment(data, MOF='CuPc-O-Ni', gas='CO', ppm=20, rep_ids=[0, 1, 2], time_adjust=-200)
+        make_adjustment(data, MOF='CuPc-O-Zn', gas='CO', ppm=40, rep_ids=[0, 1, 2, 3], time_adjust=100)
+        make_adjustment(data, MOF='CuPc-O-Cu', gas='CO', ppm=40, rep_ids=[0, 1, 2, 3], time_adjust=100)
+        make_adjustment(data, MOF='CuPc-O-Cu', gas='CO', ppm=20, rep_ids=[0, 1, 2, 3], time_adjust=600)
+        make_adjustment(data, MOF='ZnPc-O-Cu', gas='CO', ppm=80, rep_ids=[0, 1, 2, 3], time_adjust=20)
+        make_adjustment(data, MOF='ZnPc-O-Cu', gas='CO', ppm=40, rep_ids=[0, 1, 2, 3], time_adjust=100)
+        make_adjustment(data, MOF='ZnPc-O-Cu', gas='CO', ppm=20, rep_ids=[0, 1, 2, 3], time_adjust=800)
+        make_adjustment(data, MOF='ZnPc-O-Ni', gas='CO', ppm=80, rep_ids=[0, 1, 2, 3], time_adjust=100)
+        make_adjustment(data, MOF='ZnPc-O-Ni', gas='CO', ppm=40, rep_ids=[0, 1, 2, 3], time_adjust=300, n_partitions_slope_adj=3)
+        make_adjustment(data, MOF='ZnPc-O-Ni', gas='CO', ppm=20, rep_ids=[0, 1, 2], time_adjust=700, n_partitions_slope_adj=3)
+        make_adjustment(data, MOF='ZnPc-O-Zn', gas='CO', ppm=80, rep_ids=[0, 1, 2], n_partitions_slope_adj=3)
         # save
         data.to_csv("responses.csv")
     else:
@@ -692,7 +714,7 @@ def _(PowerTransformer, cmap, data, gases, gridspec, np, pd, plt, sns):
             heat = sns.heatmap(
                 subset_data,
                 xticklabels=[],
-                yticklabels="",
+                yticklabels=subset_data.index,
                 ax=ax,
                 center=0,
                 vmin=-clip,
@@ -708,7 +730,7 @@ def _(PowerTransformer, cmap, data, gases, gridspec, np, pd, plt, sns):
             ax.minorticks_off()
             ax.set_xlabel("")
             ax.set_ylabel("")
-    
+
         ax.set_xticks([0.5, 1.5, 2.5])
         ax.set_xticklabels(subset_data.index)
         plt.savefig(f"{feature}_heatmap.pdf", bbox_inches='tight', facecolor='white', pad_inches=0.5)
@@ -732,9 +754,9 @@ def _(PowerTransformer, cmap, data, gases, gridspec, np, pd, plt, sns):
 
 
 @app.cell
-def _(draw_3x3_response):
-    # with plt.rc_context({'font.size': 25}):
-    draw_3x3_response(80, "saturation")
+def _(draw_3x3_response, plt):
+    with plt.rc_context({'font.size': 25}):
+        draw_3x3_response(80, "slope")
     return
 
 
