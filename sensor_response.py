@@ -330,7 +330,7 @@ def _(SensorResponse):
 @app.cell
 def _():
     gases = ['CO', 'H2S', 'NO']
-    MOFs = ["ZnPc-O-Zn", "ZnPc-O-Cu", "ZnPc-O-Ni", "CuPc-O-Zn", "CuPc-O-Cu", "CuPc-O-Ni", "NiPc-O-Zn", "NiPc-O-Cu","NiPc-O-Ni"]
+    MOFs = ["NiPc-O-Ni", "NiPc-O-Cu", "NiPc-O-Zn", "CuPc-O-Ni", "CuPc-O-Cu","CuPc-O-Zn", "ZnPc-O-Ni", "ZnPc-O-Cu", "ZnPc-O-Zn"]
     features = ['AUC', 'slope', 'saturation']
     ppms = [80, 40, 25, 20, 10, 5]
     return MOFs, features, gases, ppms
@@ -582,7 +582,7 @@ def _(
 
         # create heatmap
         heat_matrix_plot = transformed_combo_df[feature_col_names].T
-        heat = sns.heatmap(heat_matrix_plot, cmap="coolwarm", center=0, yticklabels=yticklabels, 
+        heat = sns.heatmap(heat_matrix_plot, cmap="coolwarm", center=0, yticklabels=yticklabels,
                            vmin=-2, vmax=2, square=True, ax=ax1, cbar=False)
         ax1.grid(False)
         # create a new axes for the colorbar
@@ -624,7 +624,7 @@ def _(
                      arrowprops=dict(arrowstyle='-[, widthB=3.25, lengthB=.8', lw=2, color='k'))
 
         # label the MOFs:
-        for (i, MOF) in enumerate(MOFs):
+        for (i, MOF) in enumerate(MOFs[::-1]):
             point = (1.5 + 3 * i)
             ax1.annotate(MOF, xy=(1.01, point / (3 * len(MOFs))), xycoords='axes fraction',
                         fontsize=fs, ha='left', va='center',
@@ -649,7 +649,7 @@ def _(
         plt.subplots_adjust(hspace=0.01)
         pos1 = ax1.get_position()
         pos2 = ax2.get_position()
-        ax2.set_position([pos1.x0, pos2.y0, pos1.width - 0.12, pos2.height])
+        ax2.set_position([pos1.x0, pos2.y0, pos1.width - 0.15, pos2.height])
 
 
         # make ppm plot nice
@@ -709,6 +709,7 @@ def _(PowerTransformer, cmap, data, gases, gridspec, np, pd, plt, sns):
 
             related_cols = [col for col in subset_data.columns if feature in col]
             subset_data = subset_data[related_cols]
+            subset_data = subset_data.iloc[:, [1, 0, 2]] # ["Cu", "Ni", "Zn"] -> ["Ni", "Cu", "Zn"] to be consistent with other figures
 
             ax = fig.add_subplot(gs[i, 0])
             heat = sns.heatmap(
@@ -723,8 +724,6 @@ def _(PowerTransformer, cmap, data, gases, gridspec, np, pd, plt, sns):
                 cbar=False,
                 square=True,
             )
-            # if i == 0:
-            #     ax.set_title(feature_to_expressive_name[feature])
 
             ax.grid(False)
             ax.minorticks_off()
