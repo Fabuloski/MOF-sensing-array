@@ -329,9 +329,9 @@ def _(SensorResponse):
 
 @app.cell
 def _():
-    gases = ['CO', 'H2S', 'NO']
+    gases = ['H2S', 'NO', 'CO']
     MOFs = ["NiPc-O-Ni", "NiPc-O-Cu", "NiPc-O-Zn", "CuPc-O-Ni", "CuPc-O-Cu","CuPc-O-Zn", "ZnPc-O-Ni", "ZnPc-O-Cu", "ZnPc-O-Zn"]
-    features = ['AUC', 'slope', 'saturation']
+    features = ['slope', 'AUC', 'saturation']
     ppms = [80, 40, 25, 20, 10, 5]
     return MOFs, features, gases, ppms
 
@@ -608,20 +608,20 @@ def _(
         # count number of experiments for each type of gas
         gas_counts = {gas: sum(transformed_combo_df.gas == gas) for gas in gases}
 
-        ax1.annotate("CO", color=colordict["CO"], xy=((gas_counts['CO']/2 ) / n_exp, 1.04), xycoords='axes fraction',
+        ax1.annotate("H$_2$S", color=colordict["H2S"], xy=((gas_counts['H2S']/2 ) / n_exp, 1.04), xycoords='axes fraction',
                         fontsize=fs, ha='center', va='bottom',
                         bbox=dict(boxstyle='square', ec='white', fc='white', color='k'),
-                        arrowprops=dict(arrowstyle='-[, widthB=2.9, lengthB=.8', lw=2, color='k'))
+                        arrowprops=dict(arrowstyle='-[, widthB=4.3, lengthB=.8', lw=2, color='k'))
 
-        ax1.annotate("H$_2$S", color=colordict["H2S"], xy=((gas_counts['CO'] + gas_counts['H2S'] / 2 ) / n_exp, 1.04), 
-                     xycoords='axes fraction', fontsize=fs, ha='center', va='bottom',
-                     bbox=dict(boxstyle='square', ec='white', fc='white', color='k'),
-                     arrowprops=dict(arrowstyle='-[, widthB=4.3, lengthB=.8', lw=2, color='k'))
-
-        ax1.annotate("NO", color=colordict["NO"], xy=((gas_counts['CO'] + gas_counts['H2S'] + gas_counts['NO'] / 2) / n_exp, 1.04), 
+        ax1.annotate("NO", color=colordict["NO"], xy=((gas_counts['H2S'] + gas_counts['NO'] / 2 ) / n_exp, 1.04), 
                      xycoords='axes fraction', fontsize=fs, ha='center', va='bottom',
                      bbox=dict(boxstyle='square', ec='white', fc='white', color='k'),
                      arrowprops=dict(arrowstyle='-[, widthB=3.25, lengthB=.8', lw=2, color='k'))
+
+        ax1.annotate("CO", color=colordict["CO"], xy=((gas_counts['NO'] + gas_counts['H2S'] + gas_counts['CO'] / 2) / n_exp, 1.04), 
+                     xycoords='axes fraction', fontsize=fs, ha='center', va='bottom',
+                     bbox=dict(boxstyle='square', ec='white', fc='white', color='k'),
+                     arrowprops=dict(arrowstyle='-[, widthB=2.9, lengthB=.8', lw=2, color='k'))
 
         # label the MOFs:
         for (i, MOF) in enumerate(MOFs[::-1]):
@@ -634,7 +634,7 @@ def _(
         ax1.set_xticks([])
         ax1.minorticks_off()
         ax1.set_yticks(ax1.get_yticks())
-        ax1.set_yticklabels(ax1.get_yticklabels(), rotation=0, fontsize=fs)
+        ax1.set_yticklabels(ax1.get_yticklabels(), rotation=0, fontsize=18)
 
         # create scatter ppm plot
         colorlist = [colordict[gas] for gas in transformed_combo_df.gas] # create list to assign color to each ppm data point
@@ -662,7 +662,7 @@ def _(
         ax2.grid(axis='x', color='grey')
         ax2.set_yticks(ticks=[80,40,0])
         ax2.minorticks_off()
-        plt.savefig("heatmap.png", bbox_inches='tight', pad_inches=0.5)
+        plt.savefig("heatmap.pdf", bbox_inches='tight', pad_inches=0.5)
         return plt.show()
     return (plot_heatmap,)
 
@@ -701,7 +701,7 @@ def _(PowerTransformer, cmap, data, gases, gridspec, np, pd, plt, sns):
         sub_data.loc[sub_data.index, feature] = transformed_feature
 
         clip = np.max(np.abs(sub_data[feature]))
-        for i, gas in enumerate(["H2S", "NO", "CO"]):
+        for i, gas in enumerate(gases):
             subset_data = sub_data[(sub_data["gas"] == gas)]
             subset_data = subset_data.groupby(["M1", "M2"]).mean(feature)
             subset_data = subset_data.pivot_table(index="M1", columns="M2")
@@ -715,7 +715,7 @@ def _(PowerTransformer, cmap, data, gases, gridspec, np, pd, plt, sns):
             heat = sns.heatmap(
                 subset_data,
                 xticklabels=[],
-                yticklabels=subset_data.index,
+                yticklabels= subset_data.index,
                 ax=ax,
                 center=0,
                 vmin=-clip,
@@ -793,7 +793,7 @@ def _(Line2D, np, plt):
 
         fig, ax = plt.subplots(figsize=(10, 5))
 
-        gas_types = [('CO','CO'),('H2S','H$_2$S'),('NO','NO')] # gas label for accessing data and gas label for legend
+        gas_types = [('H2S','H$_2$S'), ('NO','NO'), ('CO','CO')] # gas label for accessing data and gas label for legend
         ppm_values = pcs_and_exps['ppm'].unique()
 
 
@@ -832,7 +832,7 @@ def _(Line2D, np, plt):
         plt.tight_layout()
 
         # Adjust the layout
-        plt.savefig("PCA.png", bbox_extra_artists=(gas_legend, ppm_legend), bbox_inches='tight')
+        plt.savefig("PCA.pdf", bbox_extra_artists=(gas_legend, ppm_legend), bbox_inches='tight')
         return plt.show()
 
     return (plot_PCA,)
@@ -888,6 +888,7 @@ def _(
     ConfusionMatrixDisplay,
     ListedColormap,
     X_test,
+    gases,
     knn,
     np,
     plt,
@@ -898,14 +899,15 @@ def _(
         disp = ConfusionMatrixDisplay.from_estimator(knn,
                                                      X_test,
                                                      test_combo.gas,
-                                                     display_labels=gases_to_pretty_name(knn.classes_),
+                                                     labels=gases,
+                                                     display_labels=gases_to_pretty_name(gases),
                                                      cmap=cmap)
         colorbar = disp.figure_.axes[-1] 
         colorbar.minorticks_off()  
         plt.minorticks_off()
         plt.tight_layout()
         plt.grid(False)
-        plt.savefig("confusionmatrix.png")
+        plt.savefig("confusionmatrix.pdf")
         plt.show()
     return (cmap,)
 
