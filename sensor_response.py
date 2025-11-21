@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.13.13"
+__generated_with = "0.16.5"
 app = marimo.App(width="medium")
 
 
@@ -17,8 +17,8 @@ def _():
     import matplotlib.pyplot as plt
     import numpy as np
     from sklearn.linear_model import LinearRegression
-    from sklearn.metrics import mean_squared_error, r2_score, auc
-    from sklearn.preprocessing import PowerTransformer
+    from sklearn.metrics import mean_squared_error, r2_score, auc, mean_absolute_error
+    from sklearn.preprocessing import PowerTransformer, StandardScaler
     from sklearn.decomposition import PCA
     import seaborn as sns
     from matplotlib.colors import LinearSegmentedColormap, ListedColormap
@@ -37,14 +37,24 @@ def _():
         PCA,
         Path,
         PowerTransformer,
+        StandardScaler,
         auc,
+        confusion_matrix,
         gridspec,
         make_axes_locatable,
+        mean_absolute_error,
         np,
         pd,
         plt,
+        r2_score,
         sns,
     )
+
+
+@app.cell
+def _():
+    from itertools import combinations
+    return (combinations,)
 
 
 @app.cell
@@ -314,7 +324,6 @@ def _(auc, linear_regression, np, plt, read_data):
             if save:
                 plt.savefig("responses/featurized_{}.png".format(all_info), format="png")
             plt.show()
-
     return (SensorResponse,)
 
 
@@ -470,8 +479,8 @@ def _(make_adjustment, pd, prelim_data, read_data_from_file):
 
 
 @app.cell(hide_code=True)
-def _():
-    # Assemble and standardize complete array response vectors
+def _(mo):
+    mo.md(r"""# Assemble and standardize complete array response vectors""")
     return
 
 
@@ -572,22 +581,22 @@ def _(
     plt,
     sns,
 ):
-    def plot_heatmap(transformed_combo_df):
-        RdGn = cmap = LinearSegmentedColormap.from_list("mycmap", ["red", "white", "green"])
-        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 12), gridspec_kw={'height_ratios':[4, 1]})
+    def plot_heatmap(transformed_combo_df, features=features, feature_col_names=feature_col_names, MOFs=MOFs):
+        cmap = LinearSegmentedColormap.from_list("mycmap", ["red", "white", "green"])
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 5.5), gridspec_kw={'height_ratios':[3, 1]})
 
         # font size
-        fs = 25
+        fs = 18
         yticklabels = features * 9
 
         # create heatmap
         heat_matrix_plot = transformed_combo_df[feature_col_names].T
-        heat = sns.heatmap(heat_matrix_plot, cmap="coolwarm", center=0, yticklabels=yticklabels,
+        heat = sns.heatmap(heat_matrix_plot, cmap="coolwarm", center=0, yticklabels=MOFs,
                            vmin=-2, vmax=2, square=True, ax=ax1, cbar=False)
         ax1.grid(False)
         # create a new axes for the colorbar
         divider = make_axes_locatable(ax1)
-        cax = divider.append_axes("right", size="2%", pad=1.9)  # increase pad to move colorbar further right
+        cax = divider.append_axes("right", size="2%", pad=0.2)  # increase pad to move colorbar further right
 
         # add colorbar to the new axes
         cbar = fig.colorbar(heat.collections[0], cax=cax)
@@ -610,26 +619,26 @@ def _(
 
         ax1.annotate("H$_2$S", color=colordict["H2S"], xy=((gas_counts['H2S']/2 ) / n_exp, 1.04), xycoords='axes fraction',
                         fontsize=fs, ha='center', va='bottom',
-                        bbox=dict(boxstyle='square', ec='white', fc='white', color='k'),
-                        arrowprops=dict(arrowstyle='-[, widthB=4.3, lengthB=.8', lw=2, color='k'))
+                        bbox=dict(boxstyle='square, pad=0', ec='white', fc='white', color='k'),
+                        arrowprops=dict(arrowstyle='-[, widthB=6.1, lengthB=.5', lw=2, color='k'))
 
         ax1.annotate("NO", color=colordict["NO"], xy=((gas_counts['H2S'] + gas_counts['NO'] / 2 ) / n_exp, 1.04), 
                      xycoords='axes fraction', fontsize=fs, ha='center', va='bottom',
-                     bbox=dict(boxstyle='square', ec='white', fc='white', color='k'),
-                     arrowprops=dict(arrowstyle='-[, widthB=3.25, lengthB=.8', lw=2, color='k'))
+                     bbox=dict(boxstyle='square, pad=0', ec='white', fc='white', color='k'),
+                     arrowprops=dict(arrowstyle='-[, widthB=4.6, lengthB=.5', lw=2, color='k'))
 
         ax1.annotate("CO", color=colordict["CO"], xy=((gas_counts['NO'] + gas_counts['H2S'] + gas_counts['CO'] / 2) / n_exp, 1.04), 
                      xycoords='axes fraction', fontsize=fs, ha='center', va='bottom',
-                     bbox=dict(boxstyle='square', ec='white', fc='white', color='k'),
-                     arrowprops=dict(arrowstyle='-[, widthB=2.9, lengthB=.8', lw=2, color='k'))
+                     bbox=dict(boxstyle='square, pad=0', ec='white', fc='white', color='k'),
+                     arrowprops=dict(arrowstyle='-[, widthB=4.1, lengthB=.5', lw=2, color='k'))
 
-        # label the MOFs:
-        for (i, MOF) in enumerate(MOFs[::-1]):
-            point = (1.5 + 3 * i)
-            ax1.annotate(MOF, xy=(1.01, point / (3 * len(MOFs))), xycoords='axes fraction',
-                        fontsize=fs, ha='left', va='center',
-                        bbox=dict(boxstyle='square', ec='white', fc='white', color='k'),
-                        arrowprops=dict(arrowstyle=']- ,widthA=1.08, lengthA=1, angleA=180', lw=2, color='k'))
+        # # label the MOFs:
+        # for (i, MOF) in enumerate(MOFs[::-1]):
+        #     point = (1.5 + 3 * i)
+        #     ax1.annotate(MOF, xy=(1.01, point / (3 * len(MOFs))), xycoords='axes fraction',
+        #                 fontsize=fs, ha='left', va='center',
+        #                 bbox=dict(boxstyle='square', ec='white', fc='white', color='k'),
+        #                 arrowprops=dict(arrowstyle=']- ,widthA=0.5, lengthA=1, angleA=180', lw=2, color='k'))
 
         ax1.set_xticks([])
         ax1.minorticks_off()
@@ -649,7 +658,7 @@ def _(
         plt.subplots_adjust(hspace=0.01)
         pos1 = ax1.get_position()
         pos2 = ax2.get_position()
-        ax2.set_position([pos1.x0, pos2.y0, pos1.width - 0.15, pos2.height])
+        ax2.set_position([pos1.x0, pos2.y0, pos1.width - .02, pos2.height])
 
 
         # make ppm plot nice
@@ -662,14 +671,58 @@ def _(
         ax2.grid(axis='x', color='grey')
         ax2.set_yticks(ticks=[80,40,0])
         ax2.minorticks_off()
+    
         plt.savefig("heatmap.pdf", bbox_inches='tight', pad_inches=0.5)
         return plt.show()
     return (plot_heatmap,)
 
 
 @app.cell
-def _(plot_heatmap, transformed_combo_df):
-    plot_heatmap(transformed_combo_df)
+def _(MOFs):
+    sat_col_names = [MOF + " saturation" for MOF in MOFs]
+    return (sat_col_names,)
+
+
+@app.cell
+def _(plot_heatmap, sat_col_names, transformed_combo_df):
+    plot_heatmap(transformed_combo_df,feature_col_names=sat_col_names,features=["saturation"])
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""# pairplot of features""")
+    return
+
+
+@app.cell
+def _(MOFs, feature_col_names, features, pd, transformed_combo_df):
+    all_features_df = pd.DataFrame()
+    for i in range(len(MOFs)):
+        start = i * len(features)
+        end = start + len(features)
+    
+        sub_col = feature_col_names[start:end]
+        MOF_df = transformed_combo_df[sub_col]
+        MOF_df.columns = features
+ 
+        all_features_df = pd.concat([all_features_df, MOF_df])
+ 
+    return (all_features_df,)
+
+
+@app.cell
+def _(all_features_df, plt, sns):
+    sns.pairplot(all_features_df)
+    plt.savefig("feature_pairplot.pdf")
+    plt.show()
+    return
+
+
+@app.cell
+def _(all_features_df):
+    corr = all_features_df.corr()
+    corr
     return
 
 
@@ -687,7 +740,7 @@ def _(data):
 
 
 @app.cell
-def _(PowerTransformer, cmap, data, gases, gridspec, np, pd, plt, sns):
+def _(PowerTransformer, data, gases, gridspec, np, pd, plt, sns):
     def draw_3x3_response(ppm, feature, data=data, gases=gases):
         feature_to_expressive_name = {"AUC" : "area under the curve\n(AUC)",
                                       "slope" : "initial rate of response\n(slope)",
@@ -734,7 +787,7 @@ def _(PowerTransformer, cmap, data, gases, gridspec, np, pd, plt, sns):
         ax.set_xticklabels(subset_data.index)
         plt.savefig(f"{feature}_heatmap.pdf", bbox_inches='tight', facecolor='white', pad_inches=0.5)
 
-        def plot_colorbar(clip=clip, cmap=cmap):
+        def plot_colorbar(clip=clip):
             fig = plt.figure(figsize=(10, 0.1))
             gs = gridspec.GridSpec(1, 3) 
 
@@ -755,34 +808,29 @@ def _(PowerTransformer, cmap, data, gases, gridspec, np, pd, plt, sns):
 @app.cell
 def _(draw_3x3_response, plt):
     with plt.rc_context({'font.size': 25}):
-        draw_3x3_response(80, "slope")
+        draw_3x3_response(80, "AUC")
     return
 
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(r"""# Principal Component Analysis (PCA)""")
+    mo.md(r"""# machine learning (supervised & unsupervised)""")
     return
 
 
-@app.cell
-def _(PCA, feature_col_names, pd, transformed_combo_df):
-    pcadata = transformed_combo_df[feature_col_names].copy()
-
-    pca = PCA(n_components=2)
-    latent_vectors = pca.fit_transform(pcadata)
-    z1, z2 = pca.explained_variance_ratio_
-    print(z1, z2)
-
-    pcs = pd.DataFrame(data=latent_vectors, columns=['PC1', 'PC2'])
-    pcs_and_exps = pd.concat([transformed_combo_df, pcs], axis=1)
-    pcs_and_exps
-    return pcs_and_exps, z1, z2
+@app.function
+def make_PCA_title(MOFs):
+    title = "["
+    for MOF in MOFs:
+        title += MOF + ", "
+    title = title[:-2]
+    title += "]"
+    return title.replace("'", "")
 
 
 @app.cell
 def _(Line2D, np, plt):
-    def plot_PCA(pcs_and_exps, z1, z2):
+    def plot_PCA(pcs_and_exps, z1, z2, savename="PCA.pdf"):
         pc1 = pcs_and_exps['PC1']
         pc2 = pcs_and_exps['PC2']
         gas = pcs_and_exps['gas']
@@ -832,84 +880,289 @@ def _(Line2D, np, plt):
         plt.tight_layout()
 
         # Adjust the layout
-        plt.savefig("PCA.pdf", bbox_extra_artists=(gas_legend, ppm_legend), bbox_inches='tight')
+        plt.savefig(savename, bbox_extra_artists=(gas_legend, ppm_legend), bbox_inches='tight')
         return plt.show()
-
     return (plot_PCA,)
 
 
 @app.cell
-def _(pcs_and_exps, plot_PCA, plt, z1, z2):
-    with plt.rc_context({'font.size': 22}):
-        plot_PCA(pcs_and_exps, z1, z2)
+def _(combo_df):
+    combo_df
     return
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""# Supervised Learning""")
-    return
-
-
-@app.cell
-def _(PowerTransformer, assemble_array_response, data, feature_col_names):
-    train_transformer = PowerTransformer()
-
-    train_combo = assemble_array_response(data, ppms=[10, 20, 80])
-    X_train = train_transformer.fit_transform(train_combo[feature_col_names])
-
-    test_combo = assemble_array_response(data, ppms=[40])
-    X_test = train_transformer.transform(test_combo[feature_col_names])
-    return X_test, X_train, test_combo, train_combo
-
-
-@app.cell
-def _(train_combo):
-    train_combo
-    return
-
-
-@app.cell
-def _(test_combo):
-    test_combo
-    return
-
-
-@app.cell
-def _(KNeighborsClassifier, X_train, np, train_combo):
-    neighbors = int(np.sqrt(len(train_combo)))
-    knn = KNeighborsClassifier(n_neighbors=neighbors, weights="distance")
-    knn.fit(X_train, train_combo.gas)
-    return (knn,)
 
 
 @app.cell
 def _(
     ConfusionMatrixDisplay,
+    KNeighborsClassifier,
+    LinearRegression,
     ListedColormap,
-    X_test,
+    MOFs,
+    PCA,
+    PowerTransformer,
+    StandardScaler,
+    confusion_matrix,
+    feature_col_names,
     gases,
-    knn,
+    gridspec,
+    mean_absolute_error,
     np,
+    pd,
     plt,
-    test_combo,
+    r2_score,
+    sns,
 ):
+    class loo_supervised:
+        def __init__(self, combo_data, feature_col_names=feature_col_names):
+            self.combo_data = combo_data
+            self.feature_col_names = feature_col_names
+            self.identity_pred = np.zeros(len(combo_data), dtype='<U10')
+            self.concentration_pred = np.zeros(len(combo_data))
+
+        def apply_pca(self, X_train, X_test):
+            # dynamically select reduced dimension
+            ref = 0.95 # choose principal components that explained at least 95% of variance
+            pca = PCA()
+            pca.fit(X_train)
+            pcs = np.argmax(np.array([sum(pca.explained_variance_ratio_[:i+1]) for i in range(pca.n_components_)]) >= ref)
+
+            # to combat dimensionality curse, we need to reduce dimensionality using all data apart from test
+            pca = PCA(n_components=pcs + 1)
+
+            X_train = pca.fit_transform(X_train)
+            X_test = pca.transform(X_test)
+            return X_train, X_test, pcs + 1
+
+        def loo_classification(self, gas, ppm):
+            scaler = PowerTransformer()
+
+            test_ids = (self.combo_data.ppm == ppm) & (self.combo_data.gas == gas)
+            train_ids = ~test_ids
+
+            X_train = self.combo_data.loc[train_ids, self.feature_col_names]
+            X_train = scaler.fit_transform(X_train)
+        
+            y_train = self.combo_data.loc[train_ids, "gas"]
+
+            X_test = self.combo_data.loc[test_ids, self.feature_col_names]
+            X_test = scaler.transform(X_test)
+
+            X_train, X_test, pcs = self.apply_pca(X_train, X_test)
+            # print(pcs)
+
+            neighbors = int(np.sqrt(len(X_train)))
+            knn = KNeighborsClassifier(n_neighbors=neighbors, weights="distance")
+            knn.fit(X_train, y_train)
+
+            y_pred = knn.predict(X_test)
+            self.identity_pred[test_ids.values] = y_pred
+            return 
+
+        def loo_regression(self, gas, ppm):
+            scaler = StandardScaler()
+            # we assume we accurately detect the analyte and focus on predicting its concentration
+            test_ids = (self.combo_data.ppm == ppm) & (self.combo_data.gas == gas)
+            train_ids = (self.combo_data.ppm != ppm) & (self.combo_data.gas == gas)
+
+            X_train = scaler.fit_transform(self.combo_data.loc[train_ids, self.feature_col_names])
+            y_train = self.combo_data.loc[train_ids, "ppm"]
+
+            X_test = scaler.transform(self.combo_data.loc[test_ids, self.feature_col_names])
+
+            X_train, X_test, pcs = self.apply_pca(X_train, X_test)
+            print(pcs)
+
+            regr = LinearRegression()
+            regr.fit(X_train, y_train)
+
+            y_pred = regr.predict(X_test)
+            self.concentration_pred[test_ids.values] = np.clip(y_pred, 0, None)
+            return
+
+        def predict(self):
+            unique_gas_ppm_pair = set(map(tuple, self.combo_data[["gas", "ppm"]].values))
+            for gas, ppm in unique_gas_ppm_pair:
+                self.loo_classification(gas, ppm)
+                self.loo_regression(gas, ppm)
+
+            self.preds = pd.DataFrame(
+                {
+                    "true_gas": self.combo_data.gas,
+                    "pred_gas": self.identity_pred,
+                    "true_ppm": self.combo_data.ppm,
+                    "pred_ppm": self.concentration_pred
+                        }
+            )
+            return self.preds
+
+        def viz_loo(self, gases=gases, MOFs=MOFs, savename=""):
+            # create dictionary for gas and corresponding colors
+            colordict = {'CO': 'grey', 'H2S': 'goldenrod', 'NO': 'teal'}
+            fig = plt.figure(figsize=(20, 4))
+            gs = gridspec.GridSpec(1, len(gases) + 1, wspace=0.5)
+
+            # Confusion matrix
+            ax1 = fig.add_subplot(gs[0, 0])
+            cmap = ListedColormap(["white", *plt.cm.Greens(np.linspace(0.1, 1))])
+            cm = confusion_matrix(self.preds.true_gas, self.preds.pred_gas, labels=gases).T
+            labels = gases_to_pretty_name(gases)
+            disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=labels)
+            disp.plot(ax=ax1, colorbar=False, cmap=cmap)
+
+            ax1.set_xlabel("true label")
+            ax1.set_ylabel("predicted label")
+
+            axes = [fig.add_subplot(gs[0, i+1]) for i in range(len(gases))]
+            for i in range(1, len(axes)):
+                axes[i].sharey(axes[0])
+
+            for i, gas in enumerate(gases):
+                ax = axes[i]
+                df_gas = self.preds[self.preds.true_gas == gas]
+
+                mae = mean_absolute_error(df_gas.true_ppm, df_gas.pred_ppm)
+                r2 = r2_score(df_gas.true_ppm, df_gas.pred_ppm)
+                props = dict(boxstyle="round", facecolor="white", alpha=0.3)
+
+                textstr = "\n".join(
+                    (
+                        "MAE = %.0f ppm" % mae,
+                        r"R$^2=%.2f$" % r2,
+                    )
+
+                )
+                ax.text(
+                    0.05,
+                    0.95,
+                    textstr,
+                    transform=ax.transAxes,
+                    fontsize=15,
+                    verticalalignment="top",
+                    bbox=props
+                )
+
+                clip = max(df_gas.true_ppm.max(), df_gas.pred_ppm.max())
+                ax.plot([0, clip], [0, clip], color="red", linestyle="--")
+
+                sns.scatterplot(x=df_gas.true_ppm, y=df_gas.pred_ppm, s=180, clip_on=False, color=colordict[gas], zorder=3, ax=ax)
+
+                ax.set_xlim(0, clip)
+                ax.set_ylim(0, clip)
+                ax.set_xticks([0, 20, 40, 60, 80])
+
+                if i == 0:
+                    ax.set_ylabel("predicted [ppm]")
+                else:
+                    plt.setp(ax.get_yticklabels(), visible=False)
+                    ax.set_ylabel("")
+
+                ax.set_title(f"{gases_to_pretty_name(gas)}", y=1.05)
+                ax.set_xlabel("true [ppm]")
+
+                ax.set_aspect("equal")
+
+            axes[0].set_yticks([0, 20, 40, 60, 80])
+
+            fig.suptitle(f"{make_PCA_title(MOFs)}", fontsize=25, y=1.1)
+            plt.savefig(savename, bbox_inches='tight')
+            return plt.show()
+    return (loo_supervised,)
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""## all features""")
+    return
+
+
+@app.cell
+def _(combo_df, feature_col_names, loo_supervised):
+    supervised_analysis = loo_supervised(combo_df, feature_col_names)
+    return (supervised_analysis,)
+
+
+@app.cell
+def _(supervised_analysis):
+    supervised_analysis.predict()
+    return
+
+
+@app.cell
+def _(plt, supervised_analysis):
     with plt.rc_context({'font.size': 25}):
-        cmap = ListedColormap(["white", *plt.cm.Greens(np.linspace(0.1, 1))])
-        disp = ConfusionMatrixDisplay.from_estimator(knn,
-                                                     X_test,
-                                                     test_combo.gas,
-                                                     labels=gases,
-                                                     display_labels=gases_to_pretty_name(gases),
-                                                     cmap=cmap)
-        colorbar = disp.figure_.axes[-1] 
-        colorbar.minorticks_off()  
-        plt.minorticks_off()
-        plt.tight_layout()
-        plt.grid(False)
-        plt.savefig("confusionmatrix.pdf")
-        plt.show()
-    return (cmap,)
+        supervised_analysis.viz_loo(savename="all_feature.pdf")
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""## saturation feature only""")
+    return
+
+
+@app.cell
+def _(combo_df, loo_supervised, sat_col_names):
+    sat_supervised_analysis = loo_supervised(combo_df, sat_col_names)
+    return (sat_supervised_analysis,)
+
+
+@app.cell
+def _(sat_supervised_analysis):
+    sat_supervised_analysis.predict()
+    return
+
+
+@app.cell
+def _(plt, sat_supervised_analysis):
+    with plt.rc_context({'font.size': 25}):
+        sat_supervised_analysis.viz_loo(savename="saturation.pdf")
+    return
+
+
+@app.cell
+def _(PCA, pd, sat_col_names, transformed_combo_df):
+    sat_pcadata = transformed_combo_df[sat_col_names].copy()
+    sat_pca = PCA(n_components=2)
+    sat_latent_vectors = sat_pca.fit_transform(sat_pcadata)
+    sat_z1, sat_z2 = sat_pca.explained_variance_ratio_
+    print(sat_z1, sat_z2)
+
+    sat_pcs = pd.DataFrame(data=sat_latent_vectors, columns=['PC1', 'PC2'])
+    sat_pcs_and_exps = pd.concat([transformed_combo_df, sat_pcs], axis=1)
+    sat_pcs_and_exps
+    return sat_pcs_and_exps, sat_z1, sat_z2
+
+
+@app.cell
+def _(plot_PCA, plt, sat_pcs_and_exps, sat_z1, sat_z2):
+    with plt.rc_context({'font.size': 22}):
+        plot_PCA(sat_pcs_and_exps, sat_z1, sat_z2, savename="sat_PCA.pdf")
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""# MOF importance""")
+    return
+
+
+@app.cell
+def _(MOFs, assemble_array_response, combinations, data, loo_supervised, plt):
+    MOF_combo = combinations(MOFs, 3)
+    for j, _MOF in enumerate(MOF_combo):
+        _feature_col_names = [MOF + " saturation" for MOF in _MOF]
+        _combo_df = assemble_array_response(data, MOFs=_MOF, feature_col_names=_feature_col_names, features=["saturation"])
+
+        _supervised_analysis = loo_supervised(_combo_df, feature_col_names=_feature_col_names)
+        _supervised_analysis.predict()
+        with plt.rc_context({'font.size': 25}):
+            _supervised_analysis.viz_loo(savename=f"3_{j}.pdf", MOFs=_MOF)
+    return
+
+
+@app.cell
+def _():
+    return
 
 
 @app.cell
