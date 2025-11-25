@@ -587,7 +587,6 @@ def _(
 
         # font size
         fs = 18
-        yticklabels = features * 9
 
         # create heatmap
         heat_matrix_plot = transformed_combo_df[feature_col_names].T
@@ -632,13 +631,6 @@ def _(
                      bbox=dict(boxstyle='square, pad=0', ec='white', fc='white', color='k'),
                      arrowprops=dict(arrowstyle='-[, widthB=4.1, lengthB=.5', lw=2, color='k'))
 
-        # # label the MOFs:
-        # for (i, MOF) in enumerate(MOFs[::-1]):
-        #     point = (1.5 + 3 * i)
-        #     ax1.annotate(MOF, xy=(1.01, point / (3 * len(MOFs))), xycoords='axes fraction',
-        #                 fontsize=fs, ha='left', va='center',
-        #                 bbox=dict(boxstyle='square', ec='white', fc='white', color='k'),
-        #                 arrowprops=dict(arrowstyle=']- ,widthA=0.5, lengthA=1, angleA=180', lw=2, color='k'))
 
         ax1.set_xticks([])
         ax1.minorticks_off()
@@ -733,35 +725,36 @@ def _(mo):
 
 
 @app.cell
-def _(data):
-    data["M1"] = data.MOF.apply(lambda x : x[:2]).copy()
-    data["M2"] = data.MOF.apply(lambda x : x.split("-")[-1]).copy()
-    return
-
-
-@app.cell
-def _(PowerTransformer, data, gases, gridspec, np, pd, plt, sns):
-    def draw_3x3_response(ppm, feature, data=data, gases=gases):
+def _(MOFs, PowerTransformer, combo_df, gases, gridspec, np, pd, plt, sns):
+    def draw_3x3_response(ppm, feature, data=combo_df, gases=gases, MOFs=MOFs):
         feature_to_expressive_name = {"AUC" : "area under the curve\n(AUC)",
                                       "slope" : "initial rate of response\n(slope)",
                                       "saturation" : "maximum response\n(saturation)"}
 
         fig = plt.figure(figsize=(8, 8))
         gs = gridspec.GridSpec(3, 1, hspace=0.1)
-        sub_data = data[(data["ppm"] == ppm)]
-        # data to help scale vizualization
-        transformed_feature = np.hstack(PowerTransformer().fit_transform(pd.DataFrame(sub_data[feature])))
-        sub_data.loc[sub_data.index, feature] = transformed_feature
+        feature_col_names = [MOF + f" {feature}" for MOF in MOFs]
+        sub_data = data.loc[(data["ppm"] == ppm), feature_col_names].copy()
+        sub_data = pd.DataFrame({feature:np.hstack(sub_data.values)})
+    
+        sub_data = pd.DataFrame(
+            {
+                    feature:np.hstack(PowerTransformer().fit_transform(sub_data)).T,
+                    "MOF": np.tile(MOFs, sub_data.shape[0]//len(MOFs)),
+                    "gas": np.repeat(data.gas[data["ppm"] == ppm], sub_data.shape[0]//sum(data["ppm"] == ppm))
+                }
+        )
 
         clip = np.max(np.abs(sub_data[feature]))
         for i, gas in enumerate(gases):
-            subset_data = sub_data[(sub_data["gas"] == gas)]
+            subset_data = sub_data.loc[(sub_data["gas"] == gas), [feature, "MOF"]]
+       
+            subset_data["M1"] = subset_data.MOF.apply(lambda x : x[:2]).copy()
+            subset_data["M2"] = subset_data.MOF.apply(lambda x : x.split("-")[-1]).copy()
+       
             subset_data = subset_data.groupby(["M1", "M2"]).mean(feature)
             subset_data = subset_data.pivot_table(index="M1", columns="M2")
             subset_data = subset_data.loc[["Ni", "Cu", "Zn"]]
-
-            related_cols = [col for col in subset_data.columns if feature in col]
-            subset_data = subset_data[related_cols]
             subset_data = subset_data.iloc[:, [1, 0, 2]] # ["Cu", "Ni", "Zn"] -> ["Ni", "Cu", "Zn"] to be consistent with other figures
 
             ax = fig.add_subplot(gs[i, 0])
@@ -808,7 +801,7 @@ def _(PowerTransformer, data, gases, gridspec, np, pd, plt, sns):
 @app.cell
 def _(draw_3x3_response, plt):
     with plt.rc_context({'font.size': 25}):
-        draw_3x3_response(80, "AUC")
+        draw_3x3_response(80, "saturation")
     return
 
 
@@ -883,12 +876,6 @@ def _(Line2D, np, plt):
         plt.savefig(savename, bbox_extra_artists=(gas_legend, ppm_legend), bbox_inches='tight')
         return plt.show()
     return (plot_PCA,)
-
-
-@app.cell
-def _(combo_df):
-    combo_df
-    return
 
 
 @app.cell
@@ -1157,16 +1144,6 @@ def _(MOFs, assemble_array_response, combinations, data, loo_supervised, plt):
         _supervised_analysis.predict()
         with plt.rc_context({'font.size': 25}):
             _supervised_analysis.viz_loo(savename=f"3_{j}.pdf", MOFs=_MOF)
-    return
-
-
-@app.cell
-def _():
-    return
-
-
-@app.cell
-def _():
     return
 
 
