@@ -1,3 +1,4 @@
+[![DOI](https://zenodo.org/badge/925397884.svg)](https://doi.org/10.5281/zenodo.19478195)
 # Arrays of Bimetallic Metallophthalocyanine-based Conductive Metal–Organic  Framework Materials Chemiresistive Detection and Differentiation of Toxic Gases.
 :rocket: This repo contains data and code to reproduce the results for:
 > Evan Cline, Hyuk-Jun Noh, Georganna Benedetto, Gbenga Fabusola, Simon Cory, and Katherine A. Mirica, "Arrays of Bimetallic Metallophthalocyanine-based Conductive Metal–Organic  Framework Materials Chemiresistive Detection and Differentiation of Toxic Gases."
